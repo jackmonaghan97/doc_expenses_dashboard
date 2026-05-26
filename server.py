@@ -111,9 +111,9 @@ def server(input, output, session):
             .item()
         )
         return f"${monthly:,.0f}"
-
-    @render_plotly
-    def exp_line_plot():
+    
+    @reactive.calc
+    def plot_calc():
         
         dat = (
             exp_data()
@@ -124,23 +124,25 @@ def server(input, output, session):
             .with_columns(pl.col("dt_parsed").dt.month().alias("month_idx"))
             .with_columns(pl.col("dt_parsed").dt.strftime("%b").alias("month"))
             .sort(["Year", "month_idx"])
-        )
-        year = (
-            dat
-            .group_by("Year", maintain_order=True)
-            .agg(pl.col('total_expenses'))
-            .sort("Year")
-        )
+            )
+            
+        return dat.sort(["Year", "month_idx"])
 
-        samples = year["total_expenses"].to_list()        # list of lists (one list per year)
-        labels = [str(y) for y in year["Year"].to_list()] # matching labels as strings
+    @render.download(filename=lambda: "chart.csv")
+    def plot_csv():
+        
+        df = plot_calc()
+        # Polars → CSV
+        if hasattr(df, "write_csv"):  # Polars
+            df.write_csv(download_tab)   # download_tab is a file-like
+        else:                            # pandas
+            df.to_csv(download_tab, index=False)
 
-        # dat: Polars DataFrame with columns Year (int), month_idx (1-12), month ("Jan"...), total_expenses (float)
-        # ensure months are sorted
-        dat = dat.sort(["Year", "month_idx"])
-
+    @render_plotly
+    def exp_line_plot():
+        
         # convert to pandas long form for Plotly Express
-        pdf = dat.select(["Year", "month_idx", "month", "total_expenses"]).to_pandas()
+        pdf = plot_calc().select(["Year", "month_idx", "month", "total_expenses"]).to_pandas()
 
         # keep months in calendar order when plotting by using month_idx as x and month labels as ticks
         fig = px.line(
@@ -150,7 +152,7 @@ def server(input, output, session):
             color="Year",
             markers=True,
             labels={"month_idx": "Month", "total_expenses": "Total expenses"},
-            title="Monthly totals by Year"
+            title=""
         )
 
         fig.update_xaxes(tickmode="array", tickvals=list(range(1,13)), ticktext=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"])

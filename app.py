@@ -84,6 +84,7 @@ app_ui = ui.page_sidebar(
 
         ui.card(
             ui.card_header("Monthly Trends"),
+            ui.download_button("plot_csv", "Download CSV"),
             output_widget("exp_line_plot"),
             full_screen=True,
         ),
