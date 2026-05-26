@@ -1,5 +1,6 @@
 import plotly.express as px
 import polars as pl
+import pandas
 
 # Load data and compute static values
 from shared import expenses, years, grouped
